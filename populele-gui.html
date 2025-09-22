@@ -308,7 +308,7 @@
                     const characteristic = await service.getCharacteristic(characteristicUuid);
 
                     t = setInterval(() => {
-                      await characteristic.writeValue(new Uint8Array([
+                      characteristic.writeValue(new Uint8Array([
                         0xf1,
                         0xff, 0xfb, 0xf7,
                         0xfb, 0xf7, 0xf0,
