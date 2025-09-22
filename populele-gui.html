@@ -6,7 +6,7 @@
     <title>Populele GUI</title>
 </head>
 <body>
-    <button onclick=go>Go</button>
+    <button onclick="go()">Go</button>
 <script>
     async function go() {
 const serviceUuid = '0000ffa0-0000-1000-8000-00805f9b34fb'
@@ -22,7 +22,7 @@ let bluetoothServer = await bluetoothDevice.gatt.connect()
 const service = await bluetoothServer.getPrimaryService(serviceUuid)
 const characteristic = await service.getCharacteristic(characteristicUuid)
 
-let i = 0, ii = 1
+let i = 0, j = 17, k = 16, l = 15 ii = 1
 setInterval(() => {
     characteristic.writeValue(new Uint8Array([
         0xf1,
