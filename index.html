@@ -277,8 +277,6 @@
                 logMessage('🔍 Requesting Bluetooth device...');
                 
                 bluetoothDevice = await navigator.bluetooth.requestDevice({
-                    acceptAllDevices: true,
-                    optionalServices: ['0000dc86-0000-1000-8000-00805f9b34fb'],
                     filters: [{
                         services: ['0000dc86-0000-1000-8000-00805f9b34fb']
                     }]
