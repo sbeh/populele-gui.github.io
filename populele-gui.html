@@ -278,7 +278,8 @@
                 logMessage('🔍 Requesting Bluetooth device...');
                 
                 bluetoothDevice = await navigator.bluetooth.requestDevice({
-                  filters: [{ services: ['0000ffa0-0000-1000-8000-00805f9b34fb'] }]
+                  filters: [{ name: 'populele' }],
+                    optionalServices: ['0000ffa0-0000-1000-8000-00805f9b34fb']
                 });
 
                 logMessage(`📱 Device selected: ${bluetoothDevice.name || 'Unknown'} (${bluetoothDevice.id})`);
