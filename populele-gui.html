@@ -6,8 +6,9 @@
     <title>Populele GUI</title>
 </head>
 <body>
+    <button onclick=go>Go</button>
 <script>
-(async () => {
+    async function go() {
 const serviceUuid = '0000ffa0-0000-1000-8000-00805f9b34fb'
 const characteristicUuid = '0000dc86-0000-1000-8000-00805f9b34fb'
     
@@ -40,8 +41,8 @@ setInterval(() => {
         ii = -1
     else if (ii < 0 && i == 0)
         ii = +1    
-}, 200);
-})()
+}, 200)
+    }
 </script>
 </body>
 </html>
