@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Populele GUI - Bluetooth Web API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .section {
+            margin-bottom: 25px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        
+        .section h3 {
+            margin-top: 0;
+            color: #555;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+        
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        input, select, textarea {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 5px;
+        }
+        
+        input[type="text"] {
+            width: 200px;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 60px;
+            resize: vertical;
+        }
+        
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        
+        .status.connected {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .service-item {
+            background-color: white;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        
+        .characteristic-item {
+            background-color: #f8f9fa;
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 3px;
+            border-left: 3px solid #007bff;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎸 Populele GUI - Bluetooth Web API</h1>
+        
+        <div class="section">
+            <h3>Connection Status</h3>
+            <div id="connectionStatus" class="status disconnected">Disconnected</div>
+        </div>
+        
+        <div class="section">
+            <h3>1. Connect to Bluetooth Device</h3>
+            <p>Click the button below to scan for and connect to a Bluetooth Low Energy device:</p>
+            <button id="connectBtn">Connect to Device</button>
+            <button id="disconnectBtn" disabled>Disconnect</button>
+            <div id="deviceInfo" style="margin-top: 10px;"></div>
+        </div>
+        
+        <div class="section">
+            <h3>2. GATT Services</h3>
+            <p>Available services will appear here after connection:</p>
+            <div id="servicesList"></div>
+        </div>
+        
+        <div class="section">
+            <h3>3. Send Data</h3>
+            <p>Send byte data to a writable characteristic:</p>
+            <div>
+                <label for="serviceUuid">Service UUID:</label>
+                <input type="text" id="serviceUuid" placeholder="e.g., 12345678-1234-1234-1234-123456789abc">
+            </div>
+            <div>
+                <label for="characteristicUuid">Characteristic UUID:</label>
+                <input type="text" id="characteristicUuid" placeholder="e.g., 87654321-4321-4321-4321-cba987654321">
+            </div>
+            <div>
+                <label for="dataToSend">Data (hex bytes, space-separated):</label>
+                <input type="text" id="dataToSend" placeholder="e.g., 0x01 0x02 0x03" style="width: 400px;">
+            </div>
+            <div>
+                <label for="dataText">Or text data:</label>
+                <input type="text" id="dataText" placeholder="Hello World" style="width: 400px;">
+            </div>
+            <button id="sendDataBtn" disabled>Send Data</button>
+        </div>
+        
+        <div class="section">
+            <h3>4. Receive Data</h3>
+            <p>Enable notifications to receive data from device:</p>
+            <div>
+                <label for="notifyServiceUuid">Service UUID:</label>
+                <input type="text" id="notifyServiceUuid" placeholder="Service UUID for notifications">
+            </div>
+            <div>
+                <label for="notifyCharacteristicUuid">Characteristic UUID:</label>
+                <input type="text" id="notifyCharacteristicUuid" placeholder="Characteristic UUID for notifications">
+            </div>
+            <button id="enableNotificationsBtn" disabled>Enable Notifications</button>
+            <button id="disableNotificationsBtn" disabled>Disable Notifications</button>
+        </div>
+        
+        <div class="section">
+            <h3>Activity Log</h3>
+            <div id="log" class="log"></div>
+            <button onclick="clearLog()">Clear Log</button>
+        </div>
+    </div>
+
+    <script>
+        let bluetoothDevice = null;
+        let bluetoothServer = null;
+        let connectedServices = new Map();
+        let notificationCharacteristic = null;
+
+        // DOM elements
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const deviceInfo = document.getElementById('deviceInfo');
+        const servicesList = document.getElementById('servicesList');
+        const sendDataBtn = document.getElementById('sendDataBtn');
+        const enableNotificationsBtn = document.getElementById('enableNotificationsBtn');
+        const disableNotificationsBtn = document.getElementById('disableNotificationsBtn');
+        const log = document.getElementById('log');
+
+        // Utility functions
+        function logMessage(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `<span style="color: #666;">[${timestamp}]</span> ${message}`;
+            log.appendChild(logEntry);
+            log.scrollTop = log.scrollHeight;
+            console.log(message);
+        }
+
+        function clearLog() {
+            log.innerHTML = '';
+        }
+
+        function updateConnectionStatus(connected, deviceName = '') {
+            if (connected) {
+                connectionStatus.textContent = `Connected to ${deviceName}`;
+                connectionStatus.className = 'status connected';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                sendDataBtn.disabled = false;
+                enableNotificationsBtn.disabled = false;
+            } else {
+                connectionStatus.textContent = 'Disconnected';
+                connectionStatus.className = 'status disconnected';
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                sendDataBtn.disabled = true;
+                enableNotificationsBtn.disabled = true;
+                disableNotificationsBtn.disabled = true;
+            }
+        }
+
+        function bytesToHex(buffer) {
+            return Array.from(new Uint8Array(buffer))
+                .map(byte => '0x' + byte.toString(16).padStart(2, '0'))
+                .join(' ');
+        }
+
+        function hexStringToBytes(hexString) {
+            const bytes = hexString.split(' ')
+                .map(hex => hex.replace('0x', ''))
+                .map(hex => parseInt(hex, 16))
+                .filter(byte => !isNaN(byte));
+            return new Uint8Array(bytes);
+        }
+
+        // Check Web Bluetooth API support
+        function checkWebBluetoothSupport() {
+            if (!navigator.bluetooth) {
+                logMessage('❌ Web Bluetooth API is not supported in this browser', 'error');
+                connectBtn.disabled = true;
+                return false;
+            }
+            logMessage('✅ Web Bluetooth API is supported', 'success');
+            return true;
+        }
+
+        // Connect to Bluetooth device
+        async function connectToDevice() {
+            try {
+                logMessage('🔍 Requesting Bluetooth device...');
+                
+                bluetoothDevice = await navigator.bluetooth.requestDevice({
+                  acceptAllDevices: true,
+                  optionalServices: [0xffa3, '0000ffa0-0000-1000-8000-00805f9b34fb']
+                });
+
+                logMessage(`📱 Device selected: ${bluetoothDevice.name || 'Unknown'} (${bluetoothDevice.id})`);
+
+                bluetoothDevice.addEventListener('gattserverdisconnected', onDeviceDisconnected);
+
+                logMessage('🔌 Connecting to GATT server...');
+                bluetoothServer = await bluetoothDevice.gatt.connect();
+
+                logMessage('✅ Connected to GATT server');
+                updateConnectionStatus(true, bluetoothDevice.name || bluetoothDevice.id);
+
+                // Display device information
+                displayDeviceInfo();
+                
+                // Discover services
+                await discoverServices();
+
+            } catch (error) {
+                logMessage(`❌ Connection failed: ${error.message}`, 'error');
+                updateConnectionStatus(false);
+            }
+        }
+
+        function displayDeviceInfo() {
+            const info = document.createElement('div');
+            info.innerHTML = `
+                <strong>Device Name:</strong> ${bluetoothDevice.name || 'Unknown'}<br>
+                <strong>Device ID:</strong> ${bluetoothDevice.id}<br>
+                <strong>Connected:</strong> ${bluetoothDevice.gatt.connected ? 'Yes' : 'No'}
+            `;
+            deviceInfo.innerHTML = '';
+            deviceInfo.appendChild(info);
+        }
+
+        async function discoverServices() {
+            try {
+                logMessage('🔍 Discovering GATT services...');
+                const services = await bluetoothServer.getPrimaryServices();
+                
+                servicesList.innerHTML = '';
+                connectedServices.clear();
+
+                for (const service of services) {
+                    connectedServices.set(service.uuid, service);
+                    
+                    const serviceElement = document.createElement('div');
+                    serviceElement.className = 'service-item';
+                    
+                    let serviceInfo = `<strong>Service:</strong> ${service.uuid}`;
+                    serviceElement.innerHTML = serviceInfo;
+
+                    try {
+                        const characteristics = await service.getCharacteristics();
+                        
+                        for (const characteristic of characteristics) {
+                            const charElement = document.createElement('div');
+                            charElement.className = 'characteristic-item';
+                            
+                            const properties = [];
+                            if (characteristic.properties.read) properties.push('READ');
+                            if (characteristic.properties.write) properties.push('WRITE');
+                            if (characteristic.properties.writeWithoutResponse) properties.push('WRITE_NO_RESPONSE');
+                            if (characteristic.properties.notify) properties.push('NOTIFY');
+                            if (characteristic.properties.indicate) properties.push('INDICATE');
+                            
+                            charElement.innerHTML = `
+                                <strong>Characteristic:</strong> ${characteristic.uuid}<br>
+                                <strong>Properties:</strong> ${properties.join(', ')}
+                            `;
+                            
+                            serviceElement.appendChild(charElement);
+                        }
+                    } catch (error) {
+                        const errorElement = document.createElement('div');
+                        errorElement.className = 'characteristic-item';
+                        errorElement.innerHTML = `<em>Could not read characteristics: ${error.message}</em>`;
+                        serviceElement.appendChild(errorElement);
+                    }
+                    
+                    servicesList.appendChild(serviceElement);
+                }
+
+                logMessage(`✅ Discovered ${services.length} services`);
+
+            } catch (error) {
+                logMessage(`❌ Service discovery failed: ${error.message}`, 'error');
+            }
+        }
+
+        function onDeviceDisconnected() {
+            logMessage('📴 Device disconnected');
+            updateConnectionStatus(false);
+            bluetoothDevice = null;
+            bluetoothServer = null;
+            connectedServices.clear();
+            deviceInfo.innerHTML = '';
+            servicesList.innerHTML = '';
+        }
+
+        async function disconnectDevice() {
+            if (bluetoothDevice && bluetoothDevice.gatt.connected) {
+                await bluetoothDevice.gatt.disconnect();
+                logMessage('🔌 Disconnected from device');
+            }
+            onDeviceDisconnected();
+        }
+
+        async function sendData() {
+            const serviceUuid = document.getElementById('serviceUuid').value.trim();
+            const characteristicUuid = document.getElementById('characteristicUuid').value.trim();
+            const dataToSend = document.getElementById('dataToSend').value.trim();
+            const dataText = document.getElementById('dataText').value.trim();
+
+            if (!serviceUuid || !characteristicUuid) {
+                logMessage('❌ Please specify both service and characteristic UUIDs', 'error');
+                return;
+            }
+
+            if (!dataToSend && !dataText) {
+                logMessage('❌ Please specify data to send (either hex bytes or text)', 'error');
+                return;
+            }
+
+            try {
+                logMessage(`📤 Getting service ${serviceUuid}...`);
+                const service = await bluetoothServer.getPrimaryService(serviceUuid);
+                
+                logMessage(`📤 Getting characteristic ${characteristicUuid}...`);
+                const characteristic = await service.getCharacteristic(characteristicUuid);
+
+                let dataBuffer;
+                if (dataText) {
+                    // Convert text to bytes
+                    dataBuffer = new TextEncoder().encode(dataText);
+                    logMessage(`📤 Sending text data: "${dataText}"`);
+                } else {
+                    // Convert hex string to bytes
+                    dataBuffer = hexStringToBytes(dataToSend);
+                    logMessage(`📤 Sending hex data: ${dataToSend}`);
+                }
+
+                await characteristic.writeValue(dataBuffer);
+                logMessage(`✅ Data sent successfully (${dataBuffer.length} bytes)`);
+
+            } catch (error) {
+                logMessage(`❌ Failed to send data: ${error.message}`, 'error');
+            }
+        }
+
+        async function enableNotifications() {
+            const serviceUuid = document.getElementById('notifyServiceUuid').value.trim();
+            const characteristicUuid = document.getElementById('notifyCharacteristicUuid').value.trim();
+
+            if (!serviceUuid || !characteristicUuid) {
+                logMessage('❌ Please specify both service and characteristic UUIDs for notifications', 'error');
+                return;
+            }
+
+            try {
+                logMessage(`📥 Setting up notifications for ${characteristicUuid}...`);
+                const service = await bluetoothServer.getPrimaryService(serviceUuid);
+                notificationCharacteristic = await service.getCharacteristic(characteristicUuid);
+
+                notificationCharacteristic.addEventListener('characteristicvaluechanged', handleNotification);
+                await notificationCharacteristic.startNotifications();
+
+                logMessage('✅ Notifications enabled');
+                enableNotificationsBtn.disabled = true;
+                disableNotificationsBtn.disabled = false;
+
+            } catch (error) {
+                logMessage(`❌ Failed to enable notifications: ${error.message}`, 'error');
+            }
+        }
+
+        async function disableNotifications() {
+            if (notificationCharacteristic) {
+                try {
+                    await notificationCharacteristic.stopNotifications();
+                    notificationCharacteristic.removeEventListener('characteristicvaluechanged', handleNotification);
+                    notificationCharacteristic = null;
+                    
+                    logMessage('📥 Notifications disabled');
+                    enableNotificationsBtn.disabled = false;
+                    disableNotificationsBtn.disabled = true;
+
+                } catch (error) {
+                    logMessage(`❌ Failed to disable notifications: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        function handleNotification(event) {
+            const value = event.target.value;
+            const hexData = bytesToHex(value.buffer);
+            const textData = new TextDecoder().decode(value);
+            
+            logMessage(`📥 Received notification: ${hexData} (text: "${textData}")`);
+        }
+
+        // Event listeners
+        connectBtn.addEventListener('click', connectToDevice);
+        disconnectBtn.addEventListener('click', disconnectDevice);
+        sendDataBtn.addEventListener('click', sendData);
+        enableNotificationsBtn.addEventListener('click', enableNotifications);
+        disableNotificationsBtn.addEventListener('click', disableNotifications);
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            logMessage('🌐 Populele GUI initialized');
+            checkWebBluetoothSupport();
+        });
+    </script>
+</body>
+</html>
